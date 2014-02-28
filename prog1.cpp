@@ -19,7 +19,7 @@ using namespace std;
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Desription: Grabs the Command name of a process from its PID that is passed
+* Description: Grabs the Command name of a process from its PID that is passed
 * to the function.
 ******************************************************************************/
 void cmdnm( string id )
@@ -48,7 +48,7 @@ void cmdnm( string id )
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Desription: Parses a string given by spaces and puts the separated element
+* Description: Parses a string given by spaces and puts the separated element
 * into a vector
 ******************************************************************************/
 void parse( string inString , vector<string> &outStrings )
@@ -68,7 +68,7 @@ void parse( string inString , vector<string> &outStrings )
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Desription: Send a signal to a prosses using the kill command
+* Description: Send a signal to a prosses using the kill command
 ******************************************************************************/
 void signal( string signal_num , string id )
 {
@@ -87,9 +87,9 @@ void signal( string signal_num , string id )
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Desription: This function prints out information about the system. It prints
+* Description: This function prints out information about the system. It prints
 * out the Linux version, system uptime, memory information, and cpu
-* information to the console using the files in the proc directiory.
+* information to the console using the files in the proc directory.
 ******************************************************************************/
 void systat()
 {
@@ -139,14 +139,14 @@ void systat()
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Desription: Entry point, contains control loop for input and handles errors
+* Description: Entry point, contains control loop for input and handles errors
 *   in the input.
 ******************************************************************************/
 int main()
 {
 	string input;	// raw input from the user
 	bool exit = false;		// tells when to exit
-	vector<string> arguments;	//the arrguments sepparated
+	vector<string> arguments;	//the arguments separated
 
 
 	do
@@ -161,9 +161,9 @@ int main()
 		}
 
 		// check for keywords and errors
-		if (arguments.size() == 0 ) // No arrguments entered error
+		if (arguments.size() == 0 ) // No arguments entered error
 		{
-			cout << "Error: No arrguments entered!\n";
+			cout << "Error: No arguments entered!\n";
 		}
 		// --------------------------------------------------------------------------
 		else if ( arguments[0] == "exit" ) // Exit command entered
@@ -173,9 +173,9 @@ int main()
 		// --------------------------------------------------------------------
 		else if( arguments[0] == "cmdnm" ) // cmdnm command entered
 		{
-			if( arguments.size() != 2 ) // make sure has right number of arrguments
+			if( arguments.size() != 2 ) // make sure has right number of arguments
 			{
-				cout << "Error: Wrong number of arrguments entered for cmdnm!\n";
+				cout << "Error: Wrong number of arguments entered for cmdnm!\n";
 			}
 			// checks to see if input is all digits
 			else if ( arguments[1].find_first_not_of("0123456789") == string::npos )
@@ -191,23 +191,23 @@ int main()
 		{
 			if ( arguments.size() != 3 )
 			{
-				cout << "Error: Wrong number of arrguments entered for signal!\n";
+				cout << "Error: Wrong number of arguments entered for signal!\n";
 			}
 			// check to see if input arrgs are all digits
 			else if ( arguments[1].find_first_not_of("0123456789") == string::npos
 				&& arguments[2].find_first_not_of("0123456789") == string::npos )
 			{
-				// argumnet for signal look good, call sinal function
+				// argument for signal look good, call signal function
 				signal( arguments[1] , arguments[2] );
 			}
 			else
-				cout << "Error: Invalid arrguments!\n";
+				cout << "Error: Invalid arguments!\n";
 
 		}
 		// --------------------------------------------------------------------
 		else if ( arguments[0] == "systat" ) // systat command entered
 		{
-			// call systat funtion
+			// call systat function
 			systat();
 		}
 		// --------------------------------------------------------------------
