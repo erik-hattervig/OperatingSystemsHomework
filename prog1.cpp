@@ -48,6 +48,105 @@ void cmdnm( string id )
 
 /******************************************************************************
 * Author: Erik Hattervig
+* Description: This function controls the user input in a loop. It will output
+* dsh> and then wait for input. The input will then be parsed and passed onto
+* the appropriate function or an error message will be outputted. The loop and
+* function will exit when the exit command is provided by the user.
+*
+*
+******************************************************************************/
+void controlLoop()
+{
+    string input;               // raw input from the user
+    bool exit = false;          // tells when to exit
+    vector<string> arguments;   //the arguments separated
+
+
+    do
+    {
+        // print out "dsh > " before the input is gotten
+        cout << "dsh > ";
+        
+        // get input from user
+        getline( cin , input );
+
+        // parce sting
+        if(input.length() != 0 ) 
+        {
+            parse( input , arguments );
+        }
+
+        // check for keywords and errors
+        if (arguments.size() == 0 ) // No arguments entered error
+        {
+            cout << "Error: No arguments entered!\n";
+        }
+        // --------------------------------------------------------------------------
+        else if ( arguments[0] == "exit" ) // Exit command entered
+        {
+            exit = true;
+        }
+        // --------------------------------------------------------------------
+        else if( arguments[0] == "cmdnm" ) // cmdnm command entered
+        {
+            if( arguments.size() != 2 ) // make sure has right number of arguments
+            {
+                cout << "Error: Wrong number of arguments entered for cmdnm!\n";
+            }
+            // checks to see if input is all digits
+            else if ( arguments[1].find_first_not_of("0123456789") == string::npos )
+            {
+                // arguments for cmdnm look good, call cmdnm function
+                cmdnm( arguments[1] );
+            }
+            else
+                cout << "Error: Invalid program id!\n";
+        }
+        // --------------------------------------------------------------------
+        else if ( arguments[0] == "signal" ) // signal command entered
+        {
+            if ( arguments.size() != 3 )
+            {
+                cout << "Error: Wrong number of arguments entered for signal!\n";
+            }
+            // check to see if input arrgs are all digits
+            else if ( arguments[1].find_first_not_of("0123456789") == string::npos
+                && arguments[2].find_first_not_of("0123456789") == string::npos )
+            {
+                // argument for signal look good, call signal function
+                signal( arguments[1] , arguments[2] );
+            }
+            else
+                cout << "Error: Invalid arguments!\n";
+
+        }
+        // --------------------------------------------------------------------
+        else if ( arguments[0] == "systat" ) // systat command entered
+        {
+            // call systat function
+            systat();
+        }
+        // --------------------------------------------------------------------
+        else
+        {
+            // The command may be a shell process we need to send it to the
+            // system command function
+            systemCommand( arguments );
+            
+            // Not needed for this project
+            // cout << "Error: Command " << arguments[0] << " not found!\n";
+        }
+
+        // clear the arguments vector for the next command
+        arguments.clear();
+
+    }while( exit == false ); // loop while exit bool variable is false
+    
+    return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
 * Description: Parses a string given by spaces and puts the separated element
 * into a vector
 ******************************************************************************/
@@ -138,94 +237,13 @@ void systat()
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Description: This function controls the user input in a loop. It will output
-* dsh> and then wait for input. The input will then be parsed and passed onto
-* the appropriate function or an error message will be outputted. The loop and
-* function will exit when the exit command is provided by the user.
-*
-*
+* Description: Forks the process and execute the command given to it and then
+* outputs the stdout and joins back to the main process.
 ******************************************************************************/
-void controlLoop()
+void systemCommand( vector<string> &args )
 {
-    string input;               // raw input from the user
-    bool exit = false;          // tells when to exit
-    vector<string> arguments;   //the arguments separated
-
-
-    do
-    {
-        // print out "dsh > " before the input is gotten
-        cout << "dsh > ";
-        
-        // get input from user
-        getline( cin , input );
-
-        // parce sting
-        if(input.length() != 0 ) 
-        {
-            parse( input , arguments );
-        }
-
-        // check for keywords and errors
-        if (arguments.size() == 0 ) // No arguments entered error
-        {
-            cout << "Error: No arguments entered!\n";
-        }
-        // --------------------------------------------------------------------------
-        else if ( arguments[0] == "exit" ) // Exit command entered
-        {
-            exit = true;
-        }
-        // --------------------------------------------------------------------
-        else if( arguments[0] == "cmdnm" ) // cmdnm command entered
-        {
-            if( arguments.size() != 2 ) // make sure has right number of arguments
-            {
-                cout << "Error: Wrong number of arguments entered for cmdnm!\n";
-            }
-            // checks to see if input is all digits
-            else if ( arguments[1].find_first_not_of("0123456789") == string::npos )
-            {
-                // arguments for cmdnm look good, call cmdnm function
-                cmdnm( arguments[1] );
-            }
-            else
-                cout << "Error: Invalid program id!\n";
-        }
-        // --------------------------------------------------------------------
-        else if ( arguments[0] == "signal" ) // signal command entered
-        {
-            if ( arguments.size() != 3 )
-            {
-                cout << "Error: Wrong number of arguments entered for signal!\n";
-            }
-            // check to see if input arrgs are all digits
-            else if ( arguments[1].find_first_not_of("0123456789") == string::npos
-                && arguments[2].find_first_not_of("0123456789") == string::npos )
-            {
-                // argument for signal look good, call signal function
-                signal( arguments[1] , arguments[2] );
-            }
-            else
-                cout << "Error: Invalid arguments!\n";
-
-        }
-        // --------------------------------------------------------------------
-        else if ( arguments[0] == "systat" ) // systat command entered
-        {
-            // call systat function
-            systat();
-        }
-        // --------------------------------------------------------------------
-        else
-        {
-            cout << "Error: Command " << arguments[0] << " not found!\n";
-        }
-
-        // clear the arguments vector for the next command
-        arguments.clear();
-
-    }while( exit == false ); // loop while exit bool variable is false
+    
+    
     
     return;
 }
