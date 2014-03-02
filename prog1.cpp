@@ -14,8 +14,23 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <sstream>
+#include <sys/wait.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <cstring>
+#include <cstdlib>
 
 using namespace std;
+
+//////// FUNCTION PROTOTYPES ////////
+void cmdnm( string id );
+void controlLoop();
+void parse( string inString , vector<string> &outStrings );
+void signal( string signal_num , string id );
+void systat();
+void systemCommand( string line );
+/////////////////////////////////////
+
 
 /******************************************************************************
 * Author: Erik Hattervig
@@ -130,8 +145,8 @@ void controlLoop()
         else
         {
             // The command may be a shell process we need to send it to the
-            // system command function
-            systemCommand( arguments );
+            // system command function to be parsed and ran
+            systemCommand( input );
             
             // Not needed for this project
             // cout << "Error: Command " << arguments[0] << " not found!\n";
@@ -240,10 +255,49 @@ void systat()
 * Description: Forks the process and execute the command given to it and then
 * outputs the stdout and joins back to the main process.
 ******************************************************************************/
-void systemCommand( vector<string> &args )
+void systemCommand( string line )
 {
+    int childpid;       // the pid of the child process
+    int waitpid;
+    int status;         // the exit status of a child function when it exits
+    char *cArgs[100];   // a c-string array of the arguments
+    int numArgs = 0;    // the number of arguments
+    int i;
     
+    // convert my sting into a c-string array
+    cArgs[ numArgs ] = strtok( (char*)line.c_str() , " " );
+    while ( cArgs[ numArgs ] != NULL )
+    {
+        numArgs++;
+        cArgs[ numArgs ] = strtok( NULL, " " );
+    }
+    numArgs--;
     
+    // fork the process
+    childpid = fork();
+    // parent will print out the child pid
+    if ( childpid != 0 )
+    {
+        printf( "The child pid is %d\n" , childpid );
+    }
+    
+    // The child process will enter this if block
+    if ( childpid == 0 )  
+    {
+        // execute the command
+        execvp( cArgs[0] , cArgs );
+        // if command did not exit then there was a problem, exit with code
+        // 5
+        perror( "Exec failed: ");
+        exit(5);
+    }
+    
+    // wait for the child to finish
+    waitpid = wait ( &status );
+    
+    // print out the child exit information
+    printf( "Shell process %d exited with status %d\n", waitpid, 
+        ( status >> 8 ) );
     
     return;
 }
