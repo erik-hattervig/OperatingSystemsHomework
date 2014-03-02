@@ -7,22 +7,25 @@
  * Usage: dsh
  * 
  *****************************************************************************/
-#include <iostream>
-#include <string>
-#include <vector>
+ 
+// ****** INCLUDES ************************************************************
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
-#include <sys/types.h>
+#include <iostream>
 #include <signal.h>
 #include <sstream>
-#include <sys/wait.h>
 #include <stdio.h>
+#include <string>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <cstring>
-#include <cstdlib>
+#include <vector>
+// ****************************************************************************
 
 using namespace std;
 
-//////// FUNCTION PROTOTYPES ////////
+// ****** FUNCTION PROTOTYPES *************************************************
 void changeDir( string line );
 void cmdnm( string id );
 void controlLoop();
@@ -30,7 +33,7 @@ void parse( string inString , vector<string> &outStrings );
 void signal( string signal_num , string id );
 void systat();
 void systemCommand( string line );
-/////////////////////////////////////
+// ****************************************************************************
 
 /******************************************************************************
 * Author: Erik Hattervig
