@@ -23,6 +23,7 @@
 using namespace std;
 
 //////// FUNCTION PROTOTYPES ////////
+void changeDir( string line );
 void cmdnm( string id );
 void controlLoop();
 void parse( string inString , vector<string> &outStrings );
@@ -42,6 +43,11 @@ int main()
     controlLoop();
     
     return 0;
+}
+
+void changeDir( string line )
+{
+
 }
 
 /******************************************************************************
@@ -108,7 +114,7 @@ void controlLoop()
         {
             cout << "Error: No arguments entered!\n";
         }
-        // --------------------------------------------------------------------------
+        // --------------------------------------------------------------------
         else if ( arguments[0] == "exit" ) // Exit command entered
         {
             exit = true;
@@ -152,6 +158,12 @@ void controlLoop()
         {
             // call systat function
             systat();
+        }
+        // --------------------------------------------------------------------
+        else if ( arguments[0] == "cd" ) // the cd command was entered
+        {
+            // send the input line to the changeDir function
+            changeDir( input );
         }
         // --------------------------------------------------------------------
         else
