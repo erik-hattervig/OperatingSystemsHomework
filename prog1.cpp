@@ -31,6 +31,18 @@ void systat();
 void systemCommand( string line );
 /////////////////////////////////////
 
+/******************************************************************************
+* Author: Erik Hattervig
+* Description: Entry point, calls the control loop function and exits when it
+*   returns.
+******************************************************************************/
+int main()
+{
+    // enter the control loop
+    controlLoop();
+    
+    return 0;
+}
 
 /******************************************************************************
 * Author: Erik Hattervig
@@ -302,16 +314,3 @@ void systemCommand( string line )
     return;
 }
 
-
-/******************************************************************************
-* Author: Erik Hattervig
-* Description: Entry point, calls the control loop function and exits when it
-*   returns.
-******************************************************************************/
-int main()
-{
-    // enter the control loop
-    controlLoop();
-    
-    return 0;
-}
