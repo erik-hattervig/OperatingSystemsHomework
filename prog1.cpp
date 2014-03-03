@@ -28,7 +28,7 @@
 using namespace std;
 
 // ****** FUNCTION PROTOTYPES *************************************************
-void changeDir( string line );
+void changeDir( vector<string> &args);
 void cmdnm( string id );
 void controlLoop();
 void parse( string inString , vector<string> &outStrings );
@@ -50,9 +50,25 @@ int main()
     return 0;
 }
 
-void changeDir( string line )
+/******************************************************************************
+* Author: Erik Hattervig
+* Description: Changes the current working directory of the program from the
+*   arguments passed in. The arguments are in a vector of strings.
+*
+******************************************************************************/
+void changeDir( vector<string> &args )
 {
-
+    // check if we have the right number of arguments
+    if ( args.size() < 2 )
+    {
+        cout << "Error: No directory specified\n";
+    }
+    else
+    {
+        // change directory using the chdir function
+        chdir( args[1].c_str() );
+    }
+    return;
 }
 
 /******************************************************************************
@@ -168,7 +184,7 @@ void controlLoop()
         else if ( arguments[0] == "cd" ) // the cd command was entered
         {
             // send the input line to the changeDir function
-            changeDir( input );
+            changeDir( arguments );
         }
         // --------------------------------------------------------------------
         else
