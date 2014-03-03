@@ -35,7 +35,8 @@ void controlLoop();
 void fileRedir( vector<string> &args );
 void parse( string inString , vector<string> &outStrings );
 void pipe( vector<string> &args );
-void remotePipe( vector<string> &args );
+void remotePipeClient( vector<string> &args );
+void remotePipeServer( vector<string> &args );
 void signal( string signal_num , string id );
 void systat();
 void systemCommand( string line );
@@ -132,11 +133,28 @@ void controlLoop()
         {
             parse( input , arguments );
         }
-
         // check for keywords and errors
         if (arguments.size() == 0 ) // No arguments entered error
         {
             cout << "Error: No arguments entered!\n";
+        }
+        // --------------------------------------------------------------------
+        // check for piping
+        else if ( input.find(" | ") != string::npos )
+        {
+            pipe( arguments );
+        }
+        // --------------------------------------------------------------------
+        // check for remote shell server pipping 
+        else if ( input.find(" )) ") != string::npos )
+        {
+            remotePipeServer( arguments );
+        }
+        // --------------------------------------------------------------------
+        // check for remote shell clent pipping 
+        else if ( input.find(" (( ") != string::npos )
+        {
+            remotePipeClient( arguments );
         }
         // --------------------------------------------------------------------
         else if ( arguments[0] == "exit" ) // Exit command entered
@@ -185,9 +203,12 @@ void controlLoop()
         }
         // --------------------------------------------------------------------
         // check for file redirection
-        else if ( arguments[1] == "<" || arguments[1] == ">" )
+        else if ( arguments.size() > 1 )
         {
-            fileRedir( arguments );
+            if ( arguments[1] == "<" || arguments[1] == ">" )
+            {
+                fileRedir( arguments );
+            }
         }
         // --------------------------------------------------------------------
         else if ( arguments[0] == "cd" ) // the cd command was entered
@@ -326,16 +347,25 @@ void parse( string inString , vector<string> &outStrings )
 ******************************************************************************/
 void pipe( vector<string> &args )
 {
-    
+    cout << "Pipe" << endl;
 }
 
 /******************************************************************************
 * Author: Erik Hattervig
-* Description: Creates remote shell pipes
+* Description: Creates remote shell client pipe
 ******************************************************************************/
-void remotePipe( vector<string> &args )
+void remotePipeClient( vector<string> &args )
 {
-    
+    cout << "Client" << endl;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+* Description: Creates remote shell server pipe
+******************************************************************************/
+void remotePipeServer( vector<string> &args )
+{
+    cout << "Server" << endl;
 }
 
 /******************************************************************************
