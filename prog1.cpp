@@ -142,7 +142,8 @@ void controlLoop()
         // check for keywords and errors
         if (arguments.size() == 0 ) // No arguments entered error
         {
-            cout << "Error: No arguments entered!\n";
+			// For Part 2 there will be no output
+            // cout << "Error: No arguments entered!\n";
         }
         // --------------------------------------------------------------------
         // check for piping
