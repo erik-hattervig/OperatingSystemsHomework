@@ -227,7 +227,6 @@ void fileRedir( vector<string> &args )
     int waitpid;
     int status;
     string line;
-    char *cArgs[100];
     int numArgs = 0;
     
     // check to make sure there are enough arguments
@@ -262,15 +261,7 @@ void fileRedir( vector<string> &args )
                 
                 cout << line << endl;
                 
-                // convert to arrar of c-strings
-                cArgs[ numArgs ] = strtok( (char*)line.c_str() , " " );
-                while ( cArgs[ numArgs ] != NULL )
-                {
-                    numArgs++;
-                    cArgs[ numArgs ] = strtok( NULL, " " );
-                }
-                numArgs--;
-                
+                line = args[0] + " " + line;
                 
             }
             else
@@ -288,17 +279,15 @@ void fileRedir( vector<string> &args )
                 }
                 close( fpt );   // close unnecessary file descriptor
                 
-                // set cArgs to the command
-                cArgs[0] = (char*)args[0].c_str();
+                line = args[0];
+                
             }
+
+            // execl( args[0].c_str() , cArgs[1] , 0 );
             
-            //  BUG: not quite sure why this isn't working
+            cout << line << endl;
             
-            // execvp( cArgs[0] , cArgs );
-            // perror( "Exec failed: ");
-            // exit(5);
-            
-            execl( args[0].c_str() , cArgs[1] , 0 );
+            systemCommand( line );
             exit(0);
         }
         // Parent process executes here
