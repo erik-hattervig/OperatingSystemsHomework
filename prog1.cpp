@@ -17,6 +17,8 @@
 #include <sstream>
 #include <stdio.h>
 #include <string>
+#include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -289,6 +291,8 @@ void systemCommand( string line )
     int status;         // the exit status of a child function when it exits
     char *cArgs[100];   // a c-string array of the arguments
     int numArgs = 0;    // the number of arguments
+    rusage *usage;      // a stuct pointer used to get information about a 
+                        //    process
     int i;
     
     // convert my sting into a c-string array
@@ -313,8 +317,7 @@ void systemCommand( string line )
     {
         // execute the command
         execvp( cArgs[0] , cArgs );
-        // if command did not exit then there was a problem, exit with code
-        // 5
+        // if command did not exit then there was a problem, exit with code 5
         perror( "Exec failed: ");
         exit(5);
     }
@@ -325,6 +328,17 @@ void systemCommand( string line )
     // print out the child exit information
     printf( "Shell process %d exited with status %d\n", waitpid, 
         ( status >> 8 ) );
+        
+    // get the process usage for the child process
+    getrusage( waitpid , usage );
+    
+    // print out information about process
+    cout << "  Information for process: " << waitpid << "\n";
+    cout << "    Time for user: " << usage->ru_utime.tv_usec << " microseconds.\n";
+    cout << "    Time for system: " << usage->ru_stime.tv_usec << " microseconds.\n";
+    cout << "    Soft page faults: " << usage->ru_minflt << "\n";
+    cout << "    Hard page faults: " << usage->ru_majflt << "\n";
+    cout << "    Swaps: " << usage->ru_nswap << endl;
     
     return;
 }
