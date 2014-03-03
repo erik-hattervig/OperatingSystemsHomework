@@ -39,7 +39,7 @@ void remotePipeClient( vector<string> &args );
 void remotePipeServer( vector<string> &args );
 void signal( string signal_num , string id );
 void systat();
-void systemCommand( string line );
+void systemCommand( string line , bool info );
 // ****************************************************************************
 
 /******************************************************************************
@@ -221,7 +221,7 @@ void controlLoop()
         {
             // The command may be a shell process we need to send it to the
             // system command function to be parsed and ran
-            systemCommand( input );
+            systemCommand( input , true );
             
             // Not needed for this project
             // cout << "Error: Command " << arguments[0] << " not found!\n";
@@ -303,19 +303,14 @@ void fileRedir( vector<string> &args )
                 line = args[0];
                 
             }
-
             // execl( args[0].c_str() , cArgs[1] , 0 );
             
-            cout << line << endl;
-            
-            systemCommand( line );
+            // call command and suppress process information output
+            systemCommand( line , false );
             exit(0);
         }
         // Parent process executes here
         waitpid = wait ( &status );
-        
-        printf( "Shell process %d exited with status %d\n", waitpid, 
-        ( status >> 8 ) );
         
     }
     return;
@@ -347,7 +342,69 @@ void parse( string inString , vector<string> &outStrings )
 ******************************************************************************/
 void pipe( vector<string> &args )
 {
-    cout << "Pipe" << endl;
+    int fd_pipe[2];
+    int pid1;
+    int pid2;
+    int status;
+    int wpid;
+    int separator = 0;
+    string line;
+    int i;
+    
+    // find where the | is in the arguments
+    while ( args[separator] != "|" )
+    {
+        separator = separator + 1;
+    }
+    
+    pid1 = fork();
+    if ( pid1 == 0 )
+    {
+        // child process executes here for input side of pipe
+        
+        pipe( fd_pipe );    // create pipe
+        
+        pid2 = fork();
+        if ( pid2 == 0 )
+        {
+            // grandchild process executes here for output of pipe
+            close(1);               // close standard output
+            dup( fd_pipe[1] );      // redirect the output
+            close( fd_pipe[0] );    // close unnecessary file descriptor
+            close( fd_pipe[1] );    // close unnecessary file descriptor
+            
+            // put command together for systemCommand function
+            for( i = 0 ; i < separator ; i++ )
+            {
+                line += args[i];
+                line += " ";
+            }
+            //execute command
+            systemCommand( line , false );
+            exit(0);
+        }
+        
+        // back to process for input side of pipe
+        close( 0 );
+        dup( fd_pipe[0] );
+        close( fd_pipe[0] );
+        close( fd_pipe[1] );
+        
+        wpid = wait( &status );
+        // put command together for systemCommand function
+        for( i = separator + 1 ; i < args.size() ; i++ )
+        {
+            line += args[i];
+            line += " ";
+        }
+        // execute command
+        systemCommand( line , false );
+        exit(0);
+    }
+    // parent process executes here
+    wpid = wait( &status );
+    
+    return;
 }
 
 /******************************************************************************
@@ -443,7 +500,7 @@ void systat()
 * Description: Forks the process and execute the command given to it and then
 * outputs the stdout and joins back to the main process.
 ******************************************************************************/
-void systemCommand( string line )
+void systemCommand( string line , bool info )
 {
     int childpid;       // the pid of the child process
     int waitpid;
@@ -466,7 +523,7 @@ void systemCommand( string line )
     // fork the process
     childpid = fork();
     // parent will print out the child pid
-    if ( childpid != 0 )
+    if ( childpid != 0 && info == true )
     {
         printf( "The child pid is %d\n" , childpid );
     }
@@ -484,21 +541,23 @@ void systemCommand( string line )
     // wait for the child to finish
     waitpid = wait ( &status );
     
-    // print out the child exit information
-    printf( "Shell process %d exited with status %d\n", waitpid, 
-        ( status >> 8 ) );
+    if( info == true )
+    {
+        // print out the child exit information
+        printf( "Shell process %d exited with status %d\n", waitpid, 
+            ( status >> 8 ) );
+            
+        // get the process usage for the child process
+        getrusage( waitpid , usage );
         
-    // get the process usage for the child process
-    getrusage( waitpid , usage );
-    
-    // print out information about process
-    cout << "  Information for process: " << waitpid << "\n";
-    cout << "    Time for user: " << usage->ru_utime.tv_usec << " microseconds.\n";
-    cout << "    Time for system: " << usage->ru_stime.tv_usec << " microseconds.\n";
-    cout << "    Soft page faults: " << usage->ru_minflt << "\n";
-    cout << "    Hard page faults: " << usage->ru_majflt << "\n";
-    cout << "    Swaps: " << usage->ru_nswap << endl;
-    
+        // print out information about process
+        cout << "  Information for process: " << waitpid << "\n";
+        cout << "    Time for user: " << usage->ru_utime.tv_usec << " microseconds.\n";
+        cout << "    Time for system: " << usage->ru_stime.tv_usec << " microseconds.\n";
+        cout << "    Soft page faults: " << usage->ru_minflt << "\n";
+        cout << "    Hard page faults: " << usage->ru_majflt << "\n";
+        cout << "    Swaps: " << usage->ru_nswap << endl;
+    }
     return;
 }
 
