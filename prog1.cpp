@@ -34,6 +34,8 @@ void cmdnm( string id );
 void controlLoop();
 void fileRedir( vector<string> &args );
 void parse( string inString , vector<string> &outStrings );
+void pipe( vector<string> &args );
+void remotePipe( vector<string> &args );
 void signal( string signal_num , string id );
 void systat();
 void systemCommand( string line );
@@ -290,11 +292,14 @@ void fileRedir( vector<string> &args )
                 cArgs[0] = (char*)args[0].c_str();
             }
             
-            execvp( cArgs[0] , cArgs );
-            perror( "Exec failed: ");
-            exit(5);
+            //  BUG: not quite sure why this isn't working
             
-            // execl( args[0].c_str() , args[0].c_str() , 0 );
+            // execvp( cArgs[0] , cArgs );
+            // perror( "Exec failed: ");
+            // exit(5);
+            
+            execl( args[0].c_str() , cArgs[1] , 0 );
+            exit(0);
         }
         // Parent process executes here
         waitpid = wait ( &status );
@@ -324,6 +329,24 @@ void parse( string inString , vector<string> &outStrings )
     } while (inString.length() > 0 );
 
     return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+* Description: Pipes two arguments together.
+******************************************************************************/
+void pipe( vector<string> &args )
+{
+    
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+* Description: Creates remote shell pipes
+******************************************************************************/
+void remotePipe( vector<string> &args )
+{
+    
 }
 
 /******************************************************************************
