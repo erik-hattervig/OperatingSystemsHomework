@@ -9,19 +9,25 @@
  *****************************************************************************/
  
 // ****** INCLUDES ************************************************************
+#include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>
+#include <errno.h>
 #include <fcntl.h>
 #include <fstream>
 #include <iostream>
+#include <netinet/in.h>
 #include <signal.h>
 #include <sstream>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 // ****************************************************************************
@@ -203,7 +209,7 @@ void controlLoop()
         }
         // --------------------------------------------------------------------
         // check for file redirection
-        else if ( arguments.size() > 1 )
+        else if ( arguments.size() != 1 )
         {
             if ( arguments[1] == "<" || arguments[1] == ">" )
             {
@@ -410,19 +416,110 @@ void pipe( vector<string> &args )
 /******************************************************************************
 * Author: Erik Hattervig
 * Description: Creates remote shell client pipe
+* Modified form example code given to us
 ******************************************************************************/
 void remotePipeClient( vector<string> &args )
 {
-    cout << "Client" << endl;
+    int sockfd = 0, n = 0;
+    char recvBuff[1024];
+    struct sockaddr_in serv_addr;
+    int separator = 0;
+    
+    // find the ip address and port
+    while( args[separator] != "((" )
+    {
+        separator += 1;
+    }
+    
+    
+    
+    memset(recvBuff, '0', sizeof(recvBuff));
+    if( ( sockfd = socket( AF_INET, SOCK_STREAM, 0 ) ) < 0 )
+    {
+        printf("\n Error : Could not create socket \n" );
+        return;
+    }
+    
+    memset( &serv_addr, '0', sizeof(serv_addr) );
+    
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons( atoi( args[separator + 2].c_str() ) );
+    
+    if(inet_pton(AF_INET, args[separator + 1].c_str() , &serv_addr.sin_addr) <= 0 )
+    {
+        printf("\n inet_pton error occured\n");
+        return;
+    }
+    
+    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr) ) < 0 )
+    {
+        printf("\n Error : Connect Failed \n");
+        return;
+    }
+    
+    while ( ( n = read( sockfd, recvBuff, sizeof( recvBuff ) - 1 ) ) > 0 )
+    {
+        recvBuff[n] = 0;
+        if(fputs(recvBuff, stdout ) == EOF )
+        {
+            printf("\n Error : Fputs error\n" );
+        }
+    }
+    
+    if( n < 0 )
+    {
+        printf( "\n Read error \n" );
+    }
+    return;
 }
 
 /******************************************************************************
 * Author: Erik Hattervig
 * Description: Creates remote shell server pipe
+* Modified from example code given to us
 ******************************************************************************/
 void remotePipeServer( vector<string> &args )
 {
-    cout << "Server" << endl;
+    int listenfd = 0;
+    int connfd = 0;
+    struct sockaddr_in serv_addr;
+    int separator = 0;
+    
+    
+    
+    // find the port
+    while( args[separator] != "))" )
+    {
+        separator += 1;
+    }
+    
+    char sendBuff[1025];
+    time_t ticks;
+    
+    listenfd = socket( AF_INET, SOCK_STREAM, 0 );
+    memset( &serv_addr, '0', sizeof(serv_addr) );
+    memset( sendBuff, '0' , sizeof(sendBuff) );
+    
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl( INADDR_ANY );
+    serv_addr.sin_port = htons( atoi( args[separator +1].c_str() ) );
+    
+    bind( listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    
+    listen( listenfd, 10 );
+    
+    while(1)
+    {
+        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        
+        ticks = time(NULL);
+        snprintf(sendBuff, sizeof(sendBuff), "%.24s\r\n", ctime(&ticks));
+        write(connfd, sendBuff, strlen(sendBuff) );
+        
+        close( connfd );
+        
+        sleep(1);
+    }
 }
 
 /******************************************************************************
