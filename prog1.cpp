@@ -11,6 +11,7 @@
 // ****** INCLUDES ************************************************************
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <signal.h>
@@ -28,9 +29,10 @@
 using namespace std;
 
 // ****** FUNCTION PROTOTYPES *************************************************
-void changeDir( vector<string> &args);
+void changeDir( vector<string> &args );
 void cmdnm( string id );
 void controlLoop();
+void fileRedir( vector<string> &args );
 void parse( string inString , vector<string> &outStrings );
 void signal( string signal_num , string id );
 void systat();
@@ -54,7 +56,6 @@ int main()
 * Author: Erik Hattervig
 * Description: Changes the current working directory of the program from the
 *   arguments passed in. The arguments are in a vector of strings.
-*
 ******************************************************************************/
 void changeDir( vector<string> &args )
 {
@@ -181,6 +182,12 @@ void controlLoop()
             systat();
         }
         // --------------------------------------------------------------------
+        // check for file redirection
+        else if ( arguments[1] == "<" || arguments[1] == ">" )
+        {
+            fileRedir( arguments );
+        }
+        // --------------------------------------------------------------------
         else if ( arguments[0] == "cd" ) // the cd command was entered
         {
             // send the input line to the changeDir function
@@ -202,6 +209,100 @@ void controlLoop()
 
     }while( exit == false ); // loop while exit bool variable is false
     
+    return;
+}
+
+/*****************************************************************************
+* Author: Erik Hattervig
+* Description: Takes and redirects a files contents to be used as arguments
+* for a Unix command. Does error checking and creates a c-string to be given
+* to the execl function.
+******************************************************************************/
+void fileRedir( vector<string> &args )
+{
+    int fpt;
+    int pid;
+    int waitpid;
+    int status;
+    string line;
+    char *cArgs[100];
+    int numArgs = 0;
+    
+    // check to make sure there are enough arguments
+    if ( args.size() < 3 )
+    {
+        cout << "Error: Not enough arguments for file redirection" << endl;
+    }
+    else
+    {
+        pid = fork();
+        if ( pid == 0 )
+        {
+            // child process executes here
+            
+            if( args[1] == "<" )
+            {
+                // open for input
+                if ( ( fpt = open( args[2].c_str() , O_RDONLY ) ) == -1 )
+                {
+                    cout << "Unable to open file for reading" << endl;
+                    exit(1);
+                }
+                close( 0 );     // close child standard input
+                if ( dup( fpt ) != 0 )    // redirect the child input
+                {
+                    cout << "Error on input dup" << endl;
+                }   
+                close( fpt );   // close unnecessary file descriptor
+                
+                // get the input from the file
+                getline( cin , line );
+                
+                cout << line << endl;
+                
+                // convert to arrar of c-strings
+                cArgs[ numArgs ] = strtok( (char*)line.c_str() , " " );
+                while ( cArgs[ numArgs ] != NULL )
+                {
+                    numArgs++;
+                    cArgs[ numArgs ] = strtok( NULL, " " );
+                }
+                numArgs--;
+                
+                
+            }
+            else
+            {
+                // open for output
+                if ( ( fpt = creat( args[2].c_str() , 0644 ) ) == -1 )
+                {
+                    cout << "Unable to open file for output" << endl;
+                    exit(1);
+                }
+                close( 1 );     // close child standard output
+                if ( dup( fpt ) != 1 )    // redirect the child output
+                {
+                    cout << "Error on output dup" << endl;
+                }
+                close( fpt );   // close unnecessary file descriptor
+                
+                // set cArgs to the command
+                cArgs[0] = (char*)args[0].c_str();
+            }
+            
+            execvp( cArgs[0] , cArgs );
+            perror( "Exec failed: ");
+            exit(5);
+            
+            // execl( args[0].c_str() , args[0].c_str() , 0 );
+        }
+        // Parent process executes here
+        waitpid = wait ( &status );
+        
+        printf( "Shell process %d exited with status %d\n", waitpid, 
+        ( status >> 8 ) );
+        
+    }
     return;
 }
 
