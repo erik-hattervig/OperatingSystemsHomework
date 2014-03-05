@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <signal.h>
 #include <sstream>
 #include <stdio.h>
@@ -416,110 +417,156 @@ void pipe( vector<string> &args )
 /******************************************************************************
 * Author: Erik Hattervig
 * Description: Creates remote shell client pipe
-* Modified form example code given to us
+* Credit to Alex Wulff for helping me understand these commands.
 ******************************************************************************/
 void remotePipeClient( vector<string> &args )
 {
-    int sockfd = 0, n = 0;
-    char recvBuff[1024];
+    int sockfd, n;
+    int BUFFERSIZE = 100000;
+    char buffer[BUFFERSIZE];
     struct sockaddr_in serv_addr;
+    struct hostent *server;
     int separator = 0;
+    string cmd;
+    int i;
     
     // find the ip address and port
     while( args[separator] != "((" )
     {
         separator += 1;
     }
-    
-    
-    
-    memset(recvBuff, '0', sizeof(recvBuff));
-    if( ( sockfd = socket( AF_INET, SOCK_STREAM, 0 ) ) < 0 )
+    for( i = 0 ; i < separator ; i++ )
     {
-        printf("\n Error : Could not create socket \n" );
+        cmd += args[i] + " ";
+    }
+    
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) 
+    {
+        printf("Error opening socket");
+    }
+    
+    server = gethostbyname( args[separator + 1].c_str() );
+    if (server == NULL) 
+    {
+        fprintf( stderr, "Error, no such host\n" );
         return;
     }
     
-    memset( &serv_addr, '0', sizeof(serv_addr) );
-    
+    bzero( (char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
+    bcopy( (char *) server->h_addr, 
+        (char *) &serv_addr.sin_addr.s_addr,
+        server->h_length);
     serv_addr.sin_port = htons( atoi( args[separator + 2].c_str() ) );
     
-    if(inet_pton(AF_INET, args[separator + 1].c_str() , &serv_addr.sin_addr) <= 0 )
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
     {
-        printf("\n inet_pton error occured\n");
+        printf("Error connecting");
+    }
+    
+    // empty the buffer
+    bzero( buffer , BUFFERSIZE );
+
+    n = write( sockfd, cmd.c_str(), cmd.length());
+    
+     if (n < 0)
+    { 
+        printf("Error writing to socket");
+    }
+
+    if (cmd.compare("exit") == 0)
+    {
         return;
     }
-    
-    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr) ) < 0 )
+
+    bzero( buffer, BUFFERSIZE );
+    n = read( sockfd, buffer, BUFFERSIZE - 1 );
+
+    if (n < 0) 
     {
-        printf("\n Error : Connect Failed \n");
-        return;
+        printf( "Error reading from socket" );
     }
-    
-    while ( ( n = read( sockfd, recvBuff, sizeof( recvBuff ) - 1 ) ) > 0 )
-    {
-        recvBuff[n] = 0;
-        if(fputs(recvBuff, stdout ) == EOF )
-        {
-            printf("\n Error : Fputs error\n" );
-        }
-    }
-    
-    if( n < 0 )
-    {
-        printf( "\n Read error \n" );
-    }
+
+    printf( "%s\n", buffer );
+    close( sockfd );
     return;
 }
 
 /******************************************************************************
 * Author: Erik Hattervig
 * Description: Creates remote shell server pipe
-* Modified from example code given to us
+* Modified from Robert Ingalls' code example
+* http://www.cs.rpi.edu/~moorthy/Courses/os98/Pgms/socket.html
 ******************************************************************************/
 void remotePipeServer( vector<string> &args )
 {
-    int listenfd = 0;
-    int connfd = 0;
-    struct sockaddr_in serv_addr;
+    int sockfd, newsockfd, portno, n;
+    int BUFFERSIZE = 100000;
+    char buffer[BUFFERSIZE];
+    struct sockaddr_in serv_addr, cli_addr;
+    socklen_t clilen;
     int separator = 0;
     
-    
-    
-    // find the port
+    // find the ip address and port
     while( args[separator] != "))" )
     {
         separator += 1;
     }
     
-    char sendBuff[1025];
-    time_t ticks;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     
-    listenfd = socket( AF_INET, SOCK_STREAM, 0 );
-    memset( &serv_addr, '0', sizeof(serv_addr) );
-    memset( sendBuff, '0' , sizeof(sendBuff) );
+    if( sockfd < 0)
+    {
+        printf("ERROR opening socket\n");
+    }
+    bzero( (char*) &serv_addr, sizeof(serv_addr) );
     
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl( INADDR_ANY );
-    serv_addr.sin_port = htons( atoi( args[separator +1].c_str() ) );
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons( atoi( args[separator + 1].c_str() ) );
     
-    bind( listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-    
-    listen( listenfd, 10 );
-    
-    while(1)
+    if ( bind( sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr) )
+        < 0 )
     {
-        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-        
-        ticks = time(NULL);
-        snprintf(sendBuff, sizeof(sendBuff), "%.24s\r\n", ctime(&ticks));
-        write(connfd, sendBuff, strlen(sendBuff) );
-        
-        close( connfd );
-        
-        sleep(1);
+        printf( "Error on binding" );
     }
+    
+    while (1)
+    {
+        listen( sockfd, 5 );
+        clilen = sizeof(cli_addr);
+        newsockfd = accept( sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        if ( newsockfd < 0 )
+        {
+            printf("Error on accept");
+        }
+        bzero( buffer, BUFFERSIZE );
+        n = read( newsockfd, buffer, BUFFERSIZE - 1 );
+        if ( n < 0 )
+        {
+            printf( "Error reading from socket" );
+        }
+        
+        // take command in and make a string
+        string reply ( buffer );
+        //terminate the loop
+        if ( reply.compare( "exit" ) == 0 )
+        {
+            return;
+        }
+        //execute
+        systemCommand( reply , false );
+        
+        // reply with what was sent
+        reply = reply + " executed.";
+        n = write( newsockfd, reply.c_str(), reply.length() );
+        if( n < 0 )
+        {
+            printf( "Error writing to socket" );
+        }
+    }
+    return;
 }
 
 /******************************************************************************
