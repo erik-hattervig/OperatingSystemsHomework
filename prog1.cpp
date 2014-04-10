@@ -25,6 +25,9 @@
 #include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,13 +36,34 @@
 #include <vector>
 // ****************************************************************************
 
+#define SHMKEY 1066
+#define SEMKEY 1066
+#define K 1024
+
 using namespace std;
+
+union semun
+{
+	int val;
+	struct semid_ds *buf;
+	unsigned short int *array;
+	struct seminfo *__buf;
+};
+
 
 // ****** FUNCTION PROTOTYPES *************************************************
 void changeDir( vector<string> &args );
 void cmdnm( string id );
 void controlLoop();
 void fileRedir( vector<string> &args );
+
+// mbox commands
+void mboxcopy( vector<string> &args );
+void mboxdel();
+void mboxinit( vector<string> &args );
+void mboxread( vector<string> &args );
+void mboxwrite( vector<string> &args );
+
 void parse( string inString , vector<string> &outStrings );
 void pipe( vector<string> &args );
 void remotePipeClient( vector<string> &args );
@@ -134,7 +158,7 @@ void controlLoop()
         
         // get input from user
         getline( cin , input );
-
+		
         // parce sting
         if(input.length() != 0 ) 
         {
@@ -210,6 +234,33 @@ void controlLoop()
             systat();
         }
         // --------------------------------------------------------------------
+		else if ( arguments[0] == "mboxinit" ) // the command for mboxinit
+		{
+			if( arguments.size() > 2 )
+			{
+				mboxinit( arguments );
+			}
+		}
+		// --------------------------------------------------------------------
+		else if ( arguments[0] == "mboxdel" ) // the command for mboxdel
+		{
+			mboxdel();
+		}
+		// --------------------------------------------------------------------
+		else if ( arguments[0] == "mboxwrite" ) // the command for mboxwrite
+		{
+			mboxwrite( arguments );
+		}
+		// --------------------------------------------------------------------
+		else if ( arguments[0] == "mboxread" ) // the command for mboxread
+		{
+			mboxread( arguments );
+		}
+		// --------------------------------------------------------------------
+		else if ( arguments[0] == "mboxcopy" ) // the command for mboxcopy
+		{
+			mboxcopy( arguments );
+		}
         // check for file redirection
         else if ( arguments.size() != 1 )
         {
@@ -224,7 +275,7 @@ void controlLoop()
             // send the input line to the changeDir function
             changeDir( arguments );
         }
-        // --------------------------------------------------------------------
+		// --------------------------------------------------------------------
         else
         {
             // The command may be a shell process we need to send it to the
@@ -240,6 +291,8 @@ void controlLoop()
 
     }while( exit == false ); // loop while exit bool variable is false
     
+	mboxdel();
+	
     return;
 }
 
@@ -322,6 +375,313 @@ void fileRedir( vector<string> &args )
         
     }
     return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+*
+* copies the contents of on box into another one
+******************************************************************************/
+void mboxcopy( vector<string> &args )
+{
+	ifstream fin;
+	int shmid;
+	int numBoxes;
+	int size;
+	int box1 = atoi( args[1].c_str() );
+	int box2 = atoi( args[2].c_str() );
+	char *addr;
+	char *addrRead;
+	char *addrWrite;
+	int i;
+	int semid;
+	struct sembuf lock;
+	
+	
+	// get shared memory stats 
+	fin.open("sharedMemoryID.txt");
+	if( ! fin.is_open() )
+	{
+		cout << "Error: No shared memory" << endl;
+		return;
+	}
+	fin >> shmid;
+	fin >> numBoxes;
+	fin >> size;
+	fin >> semid;
+	fin.close();
+	
+	if( box1 > numBoxes || box2 > numBoxes )
+	{
+		cout << "Error: There are only " << numBoxes << " boxes." << endl;
+		return;
+	}
+	
+	// loop while semaphore is locked
+	while( semctl( semid, 0, GETVAL, 0) == 0 )
+	{
+		// the semaphore is locked wait until it is not
+	}
+	
+	// lock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = -1;  // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	
+	// attach the shared memory to process
+	addrRead = (char*)shmat( shmid, 0, 0 );
+	addrWrite = (char*)shmat( shmid, 0, 0 );
+	
+	// copy data to the other box
+	for( i = 0 ; i < size ; i++ )
+	{
+		*(addrWrite + i + (size*box1) ) = *( addrRead + i + (size*box2) );
+	}
+	
+	// unlock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = 1;   // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+* 
+* Deletes all of the shared memory on the system
+******************************************************************************/
+void mboxdel()
+{
+	ifstream fin;
+	int size;
+	int numBoxes;
+	int shmid;
+	int semid;
+	
+	// open the file containing the shared memory information
+	fin.open("sharedMemoryID.txt");
+	if( ! fin.is_open() )
+	{
+		return;
+	}
+	fin >> shmid;
+	fin >> numBoxes;
+	fin >> size;
+	fin >> semid;
+	fin.close();
+	
+	system( "rm sharedMemoryID.txt" );
+	
+	// release shared memory
+	shmctl( shmid, IPC_RMID, 0 );
+	
+	// remove the semaphore
+	semctl( semid, 0, IPC_RMID, 0);
+	
+	return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+* 
+* Creates the mailboxes and save a file to find the id and size of the first
+* one.
+*
+* arg[1] - number of mailboxes
+* arg[2] - size of mailbox in kbytes
+******************************************************************************/
+void mboxinit( vector<string> &args )
+{
+	int i;
+	int shmid;
+	//char *addr;
+	//int *pint;
+	ofstream mboxfile;
+	int size = atoi(args[2].c_str());
+	int semid;
+	union semun options;
+	
+	// Using ftok( "sharedMemoryID.txt", 'a' ), create one block of shared memory region with access permissions
+	// 0666, this is the first mailbox will hold addresses to the other boxes
+	shmid = shmget( SHMKEY, size * K * ( atoi( args[1].c_str() ) + 1 ) , IPC_CREAT | IPC_EXCL | 0666 );
+	if( shmid < 0 )
+	{
+		printf( "Error: shmid is %d\n", shmid );
+		return;
+	}
+	
+	// Create Semaphore
+	semid = semget( SEMKEY, 1, IPC_CREAT | IPC_EXCL | 0666 );
+	
+	// Initialize the semaphore at index 0
+	options.val = 1;
+	semctl(semid , 0, SETVAL, options);
+	
+	// Test that the semaphore was created correctly:
+	if (semctl ( semid, 0, GETVAL, 0 ) == 0 )
+	{
+		printf( "Error: Can not lock semaphore.\n");
+	}
+	
+	
+	// write the memory id out to a file for other processes to find
+	mboxfile.open( "sharedMemoryID.txt" );
+	mboxfile << shmid << endl << args[1] << endl << size*K << endl << semid;
+	mboxfile.close();
+	
+	return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+*
+* Reads what is in the memory block until a null terminator of the end of the
+* memory.
+******************************************************************************/
+void mboxread( vector<string> &args )
+{
+	ifstream fin;
+	int shmid;
+	int numBoxes;
+	int size;
+	int boxid = atoi( args[1].c_str() );
+	char *addr;
+	int i;
+	int semid;
+	struct sembuf lock;
+	
+	// get shared memory stats 
+	fin.open("sharedMemoryID.txt");
+	if( ! fin.is_open() )
+	{
+		cout << "Error: No shared memory" << endl;
+		return;
+	}
+	fin >> shmid;
+	fin >> numBoxes;
+	fin >> size;
+	fin >> semid;
+	fin.close();
+	
+	if( boxid > numBoxes )
+	{
+		cout << "Error: No box at that number" << endl;
+		return;
+	}
+	
+	// loop while semaphore is locked
+	while( semctl( semid, 0, GETVAL, 0) == 0 )
+	{
+		// the semaphore is locked wait until it is not
+	}
+	
+	// lock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = -1;  // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	// attach the shared memory to process
+	addr = (char*)shmat( shmid, 0, 0 );
+	
+	// print out the data in the stored memory
+	// prints out till end of string or end of box
+	for( i = 0 ; i < size && *( addr + i + (size * boxid) ) != '\0' ; i++ )
+	{
+		cout << *( addr + i + (size * boxid) );
+	}
+	
+	cout << endl;
+	
+	// unlock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = 1;   // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	return;
+}
+
+/******************************************************************************
+* Author: Erik Hattervig
+*
+* Writes what the user types to the memory block, until ctrl-D is given.
+******************************************************************************/
+void mboxwrite( vector<string> &args )
+{
+	ifstream fin;
+	int shmid;
+	int numBoxes;
+	int size;
+	int boxid = atoi( args[1].c_str() );
+	char *addr;
+	// int *pint;
+	int buffer;
+	int totalBytes = 0;
+	int i = 0;
+	int semid;
+	struct sembuf lock;
+	
+	// get shared memory stats 
+	fin.open("sharedMemoryID.txt");
+	if( ! fin.is_open() )
+	{
+		cout << "Error: No shared memory" << endl;
+		return;
+	}
+	fin >> shmid;
+	fin >> numBoxes;
+	fin >> size;
+	fin >> semid;
+	fin.close();
+	
+	if( boxid > numBoxes )
+	{
+		cout << "Error: No box at that number" << endl;
+		return;
+	}
+	
+	// loop while semaphore is locked
+	while( semctl( semid, 0, GETVAL, 0) == 0 )
+	{
+		// the semaphore is locked wait until it is not
+	}
+	
+	// lock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = -1;  // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	// attach the shared memory to process
+	addr = (char*)shmat( shmid, 0, 0 );
+	//pint = (int *) addr;
+	
+	// read in the user's string till ctrl-D
+	buffer = getchar();
+	while( buffer != EOF && totalBytes <= size )
+	{
+		
+		// put buffer into box
+		*(addr + i + (size * boxid) ) = (char)buffer;
+		
+		totalBytes++;
+		buffer = getchar();
+		i++;
+	}
+	cout << endl;
+	
+	// unlock the semaphore
+	lock.sem_num = 0;  // semaphore index
+	lock.sem_op = 1;   // the operation
+	lock.sem_flg =  IPC_NOWAIT;  // operation flags
+	semop( semid, &lock, 1);     // perform the requested operation
+	
+	return;
 }
 
 /******************************************************************************
